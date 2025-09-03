@@ -1,23 +1,28 @@
-import org.jetbrains.compose.desktop.application.dsl.TargetFormat
+import io.gitlab.arturbosch.detekt.Detekt
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import org.jlleitschuh.gradle.ktlint.reporter.ReporterType
 
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
     alias(libs.plugins.androidApplication)
     alias(libs.plugins.composeMultiplatform)
     alias(libs.plugins.composeCompiler)
+    alias(libs.plugins.ktlint)
+    alias(libs.plugins.detekt)
+    alias(libs.plugins.kotlinx.kover)
 }
 
 kotlin {
     androidTarget {
         compilerOptions {
-            jvmTarget.set(JvmTarget.JVM_11)
+            jvmTarget.set(JvmTarget.JVM_17)
+            allWarningsAsErrors.set(true)
         }
     }
 
     listOf(
         iosArm64(),
-        iosSimulatorArm64()
+        iosSimulatorArm64(),
     ).forEach { iosTarget ->
         iosTarget.binaries.framework {
             baseName = "ComposeApp"
@@ -68,8 +73,31 @@ android {
         }
     }
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+    lint {
+        baseline = file("lint-baseline.xml")
+        abortOnError = true
+        checkAllWarnings = true
+        warningsAsErrors = true
+        xmlReport = true
+        htmlReport = true
+        checkDependencies = true
+        checkGeneratedSources = true
+        enable += listOf(
+            "UnusedIds",
+            "UnusedResources",
+            "UnusedQuantity",
+        )
+        disable += listOf(
+            "AndroidGradlePluginVersion",
+            "ComposableLambdaParameterNaming",
+            "DuplicateStrings",
+            "GradleDependency",
+            "NewerVersionAvailable",
+        )
+        checkGeneratedSources = false
     }
 }
 
@@ -77,3 +105,27 @@ dependencies {
     debugImplementation(compose.uiTooling)
 }
 
+ktlint {
+    android = true
+    ignoreFailures = false
+    version = "1.0.1"
+    reporters {
+        reporter(ReporterType.CHECKSTYLE)
+        reporter(ReporterType.PLAIN)
+        reporter(ReporterType.HTML)
+    }
+}
+
+tasks.withType<Detekt>().configureEach {
+    reports {
+        xml.required.set(true)
+        md.required.set(true)
+    }
+}
+
+detekt {
+    toolVersion = "1.23.8"
+    config.setFrom(files("${rootProject.projectDir}/config/detekt/detekt.yml"))
+    baseline = file("${rootProject.projectDir}/config/detekt/detekt-baseline.xml")
+    buildUponDefaultConfig = true
+}
